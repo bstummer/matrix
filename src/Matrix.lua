@@ -2,23 +2,16 @@
 
 Matrix library in Luau
 
-Version of this module: 1.0.0
+Version of this module: 1.1.0
 
-Created by Vaschex
-This is composed of functions from other libraries, mostly in other languages
-
-- When using arithmetic operators with a matrix and a number, the number
-has to be on the right
+Created by bstummer
 
 ]]
 
 local function deepCopy(t)
 	local copy = {}
 	for k, v in next, t do
-		if type(v) == "table" then
-			v = deepCopy(v)
-		end
-		copy[k] = v
+		copy[k] = type(v) == "table" and deepCopy(v) or v
 	end
 	return copy
 end
@@ -37,112 +30,201 @@ end
 local module = {}
 
 local matrix = {}
+
 matrix.__index = matrix
+
 matrix.__unm = function(mtx)
-	return -1 * mtx
+	local res = module.new(#mtx, #mtx[1])
+	for i = 1, #mtx do
+		for j = 1, #mtx[1] do
+			res[i][j] = -mtx[i][j]
+		end
+	end
+	return res
 end
+
 matrix.__add = function(first, second)
-	if type(second) == "number" then
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] += second
+	local isFirstNum = type(first) == "number"
+	local isSecondNum = type(second) == "number"
+
+	if isFirstNum or isSecondNum then
+		local mtx = isFirstNum and second or first
+		local scalar = isFirstNum and first or second
+		local res = module.new(#mtx, #mtx[1])
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = mtx[i][j] + scalar
 			end
 		end
-		return first
-	else --second can be larger than first
+		return res
+	else
+		assert(#first == #second and #first[1] == #second[1], "Matrix dimensions must match.")
+		local res = module.new(#first, #first[1])
 		for i = 1, #first do
 			for j = 1, #first[1] do
-				first[i][j] += second[i][j]
+				res[i][j] = first[i][j] + second[i][j]
 			end
 		end
-		return first
+		return res
 	end
 end
+
 matrix.__sub = function(first, second)
-	if type(second) == "number" then
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] -= second
+	local isFirstNum = type(first) == "number"
+	local isSecondNum = type(second) == "number"
+	local mtx = isFirstNum and second or first
+	
+	local res = module.new(#mtx, #mtx[1])
+	
+	if isFirstNum then -- if its 10 - mtx
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = first - mtx[i][j]
 			end
 		end
-		return first
-	else
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] -= second[i][j]
+	elseif isSecondNum then -- if its mtx - 10
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = mtx[i][j] - second
 			end
 		end
-		return first
+	else -- if its mtx1 - mtx2
+		assert(#first == #second and #first[1] == #second[1], "Matrix dimensions must match.")
+		for i = 1, #first do
+			for j = 1, #first[1] do
+				res[i][j] = first[i][j] - second[i][j]
+			end
+		end
 	end
+	
+	return res
 end
+
 matrix.__mul = function(first, second)
-	if type(second) == "number" then
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] *= second
+	local isFirstNum = type(first) == "number"
+	local isSecondNum = type(second) == "number"
+
+	if isFirstNum or isSecondNum then
+		local mtx = isFirstNum and second or first
+		local scalar = isFirstNum and first or second
+		local res = module.new(#mtx, #mtx[1])
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = mtx[i][j] * scalar
 			end
 		end
-		return first
+		return res
 	else
+		if #first[1] ~= #second then
+			error("Matrix dimensions do not match for multiplication.")
+		end
+		local res = module.new(#first, #second[1])
 		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] *= second[i][j]
+			for j = 1, #second[1] do
+				local sum = 0
+				for k = 1, #first[1] do
+					sum += first[i][k] * second[k][j]
+				end
+				res[i][j] = sum
 			end
 		end
-		return first
+		return res
 	end
 end
+
 matrix.__div = function(first, second)
-	if type(second) == "number" then
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] /= second
+	local isFirstNum = type(first) == "number"
+	local isSecondNum = type(second) == "number"
+	local mtx = isFirstNum and second or first
+	
+	local res = module.new(#mtx, #mtx[1])
+	
+	if isFirstNum then
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = first / mtx[i][j]
 			end
 		end
-		return first
+	elseif isSecondNum then
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = mtx[i][j] / second
+			end
+		end
 	else
+		assert(#first == #second and #first[1] == #second[1], "Matrix dimensions must match.")
 		for i = 1, #first do
 			for j = 1, #first[1] do
-				first[i][j] /= second[i][j]
+				res[i][j] = first[i][j] / second[i][j]
 			end
 		end
-		return first
 	end
+	
+	return res
 end
+
 matrix.__mod = function(first, second)
-	if type(second) == "number" then
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] %= second
+	local isFirstNum = type(first) == "number"
+	local isSecondNum = type(second) == "number"
+	local mtx = isFirstNum and second or first
+	
+	local res = module.new(#mtx, #mtx[1])
+	
+	if isFirstNum then
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = first % mtx[i][j]
 			end
 		end
-		return first
+	elseif isSecondNum then
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = mtx[i][j] % second
+			end
+		end
 	else
+		assert(#first == #second and #first[1] == #second[1], "Matrix dimensions must match.")
 		for i = 1, #first do
 			for j = 1, #first[1] do
-				first[i][j] %= second[i][j]
+				res[i][j] = first[i][j] % second[i][j]
 			end
 		end
-		return first
 	end
+	
+	return res
 end
+
 matrix.__pow = function(first, second)
-	if type(second) == "number" then
-		for i = 1, #first do
-			for j = 1, #first[1] do
-				first[i][j] ^= second
+	local isFirstNum = type(first) == "number"
+	local isSecondNum = type(second) == "number"
+	local mtx = isFirstNum and second or first
+	
+	local res = module.new(#mtx, #mtx[1])
+	
+	if isFirstNum then
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = first ^ mtx[i][j]
 			end
 		end
-		return first
+	elseif isSecondNum then
+		for i = 1, #mtx do
+			for j = 1, #mtx[1] do
+				res[i][j] = mtx[i][j] ^ second
+			end
+		end
 	else
+		assert(#first == #second and #first[1] == #second[1], "Matrix dimensions must match.")
 		for i = 1, #first do
 			for j = 1, #first[1] do
-				first[i][j] ^= second[i][j]
+				res[i][j] = first[i][j] ^ second[i][j]
 			end
 		end
-		return first
 	end
+	
+	return res
 end
+
 matrix.__tostring = function(mtx)
 	local result = "\n{"
 	for i, v in ipairs(mtx) do
@@ -163,27 +245,7 @@ matrix.__tostring = function(mtx)
 	result ..= "}"
 	return result
 end
---[[function matrix:List() --only for testing with py, js, etc.
-	local result = ""
-	result ..= "\n["
-	for i, v in ipairs(self) do
-		result ..= "["
-		for i2, v2 in ipairs(v) do
-			if i2 ~= #v then
-				result ..= v2 .. ","
-			else
-				result ..= v2
-			end
-		end
-		if i ~= #self then
-			result ..= "],\n"
-		else
-			result ..= "]"
-		end
-	end
-	result ..= "]"
-	return result
-end]]
+
 --eq, lt and le only get invoked when having the same metatable and type
 matrix.__eq = function(first, second)
 	if #first ~= #second or #first[1] ~= #second[1] then
@@ -280,7 +342,7 @@ function matrix:Rotate(degrees:number)
 		end
 		for i = 1, height do
 			for j = 1, width do
-				mtx[height - i + 1][height - j + 1] = self[i][j]
+				mtx[height - i + 1][width - j + 1] = self[i][j]
 			end
 		end
 	else
@@ -291,23 +353,23 @@ end
 
 function matrix:Minor(row:number, col:number)
 	local height, width = #self, #self[1]
-	if not (0 <= row and 0 < height) then
-		error("row should be between 0 and ".. height)
-	elseif not (0 <= col and 0 < width) then
-		error("col should be between 0 and ".. width)
+	if not (0 < row and row <= height) then 
+		error("row should be between 1 and ".. height)
+	elseif not (0 < col and col <= width) then
+		error("col should be between 1 and ".. width)
 	end
 	local result = {}
 	for r = 1, height do
 		if r == row then
 			continue
 		end
-		local row = {}
-		table.insert(result, row)
+		local newRow = {}
+		table.insert(result, newRow)
 		for c = 1, width do
 			if c == col then
 				continue
 			end
-			table.insert(row, self[r][c])
+			table.insert(newRow, self[r][c])
 		end
 	end
 	return setmetatable(result, matrix)
@@ -329,7 +391,7 @@ function matrix:Determinant():number
 			end
 		end
 		pivot = tmp[r][c]
-		if not pivot then
+		if pivot == 0 then
 			return 0
 		end
 		tmp[r], tmp[c] = tmp[c], tmp[r]
@@ -357,13 +419,16 @@ function matrix:Iterate()
 			r, c = r + 1, 1
 		end
 		if r <= height then
-			return r, c
+			return r, c, self[r][c]
 		end
 	end
 end
 
 function matrix:Adjugate()
 	local height, width = #self, #self[1]
+	if height == 1 then
+		return setmetatable({{1}}, matrix)
+	end
 	if height == 2 then
 		local a, b = self[1][1], self[1][2]
 		local c, d = self[2][1], self[2][2]
@@ -382,11 +447,15 @@ function matrix:Adjugate()
 			mtx[r][c] = self:Minor(r, c):Determinant() * sign
 		end
 	end
-	return setmetatable(mtx, matrix)
+	return setmetatable(mtx, matrix):Transpose()
 end
 
 function matrix:Inverse()
-	return self:Adjugate() * (1 / self:Determinant())
+	local det = self:Determinant()
+	if det == 0 then
+		error("Matrix is singular and cannot be inverted.")
+	end
+	return self:Adjugate() * (1 / det)
 end
 
 function matrix:Destroy()
